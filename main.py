@@ -18,7 +18,7 @@ from langchain import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
-from langchain.chat_models import ChatOpenAI
+from langchain.chat_models import OpenAI
 from langchain.chains.question_answering import load_qa_chain
 load_dotenv()
 
@@ -51,7 +51,8 @@ console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.DEBUG)
 
 # Define a formatter to format log messages
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+formatter = logging.Formatter(
+    "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 console_handler.setFormatter(formatter)
 
 # Add the console handler to the logger
@@ -93,16 +94,10 @@ async def login(token: Annotated[str, Body(embed=True)]):
 
 # Given the following extracted parts of a story and an human's input, generate a next part of story.
 # First of all, we need to gather details
-template = """You are an interesting storybot interacting with a human.
-
-==============================
---- {DOC_PROMPT} ---
-==============================
-
+template = """
+{DOC_PROMPT}
 {context}
-
-Human: {human_input}
-Storybot: 
+{human_input}
 """
 
 prompt = PromptTemplate(
@@ -110,35 +105,40 @@ prompt = PromptTemplate(
     template=template
 )
 
+
 @app.post('/{user}')
 async def next(user: str, msg: str = Body(embed=True)):
     logger.info(user + '/' + msg)
-    
+
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000, chunk_overlap=200, length_function=len)
     embeddings = OpenAIEmbeddings()
-    llm = ChatOpenAI(temperature=0.7)
+    llm = OpenAI(temperature=0.7)
     chain = load_qa_chain(llm=llm, chain_type="stuff",
-                            verbose=True, prompt=prompt)
+                          verbose=True, prompt=prompt)
     if os.path.exists(f"./store/{user}/index.faiss"):
         docsearch = FAISS.load_local(f"./store/{user}", embeddings)
+        # msg = msg + " What's next?"
         docs = docsearch.similarity_search(msg)
+        # msg = "Human: " + msg
         contents = ""
         with open(f"./store/{user}/prompt.txt", 'r') as f:
             contents = f.read()
             f.flush()
-        completion = chain.run(input_documents=docs, human_input=msg, DOC_PROMPT=contents)
-        texts = text_splitter.split_text("Human: " + msg + "\r\nStorybot: " + completion + "\r\n")
+        completion = chain.run(
+            input_documents=docs, human_input=msg + "What's next?", DOC_PROMPT=contents)
+        texts = text_splitter.split_text(msg + "\r\n" + completion + "\r\n")
         docsearch.add_texts(texts)
     else:
-        completion = chain.run(input_documents=[], human_input="Now let's get started!", DOC_PROMPT=msg)
-        texts = text_splitter.split_text("Human: Now let's get started!\r\nStorybot: " + completion + "\r\n")
+        completion = chain.run(
+            input_documents=[], human_input="Now ask me one by one but don't say yes or sure at first. Just start with greetings.", DOC_PROMPT=msg)
+        texts = text_splitter.split_text(
+            "Now ask me one by one but don't say yes or sure at first. Just start with greetings.\r\n" + completion + "\r\n")
         docsearch = FAISS.from_texts(texts, embeddings)
         os.makedirs(f"./store/{user}")
         with open(f"./store/{user}/prompt.txt", 'w') as f:
             f.write(msg)
             f.flush()
-
 
     docsearch.save_local(f"./store/{user}")
     return {'msg': completion}
@@ -146,4 +146,4 @@ async def next(user: str, msg: str = Body(embed=True)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host='0.0.0.0', port=80)
+    uvicorn.run("main:app", host='0.0.0.0', port=9000)
