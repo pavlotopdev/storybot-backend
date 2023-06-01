@@ -18,7 +18,7 @@ from langchain import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
-from langchain.chat_models import OpenAI
+from langchain.chat_models import ChatOpenAI
 from langchain.chains.question_answering import load_qa_chain
 load_dotenv()
 
@@ -113,7 +113,7 @@ async def next(user: str, msg: str = Body(embed=True)):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000, chunk_overlap=200, length_function=len)
     embeddings = OpenAIEmbeddings()
-    llm = OpenAI(temperature=0.7)
+    llm = ChatOpenAI(temperature=0.7)
     chain = load_qa_chain(llm=llm, chain_type="stuff",
                           verbose=True, prompt=prompt)
     if os.path.exists(f"./store/{user}/index.faiss"):
