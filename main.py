@@ -35,7 +35,7 @@ app = FastAPI()
 
 app.mount("/store", StaticFiles(directory="store"), name="static")
 
-origins = ["http://localhost:3000"]
+origins = ["https://storybot-three.vercel.app"]
 app.add_middleware(CORSMiddleware, allow_origins=origins,
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 # app.add_middleware(HTTPSRedirectMiddleware)
